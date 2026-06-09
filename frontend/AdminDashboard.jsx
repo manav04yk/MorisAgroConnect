@@ -106,7 +106,7 @@ function AdminDashboard() {
     });
     
     addActivity(`New user registered: ${name}`, name, 'user');
-    addToast(`✅ ${name} added as ${role}!`, 'success');
+    addToast(`${name} added as ${role}!`, 'success');
     
     document.getElementById('userName').value = '';
     document.getElementById('userEmail').value = '';
