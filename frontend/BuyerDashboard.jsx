@@ -2,32 +2,64 @@
 import React, { useState, useEffect } from 'react';
 import SustainabilityTicker from '../components/SustainabilityTicker';
 import FloatingChat from '../components/FloatingChat';
+import Toast from '../components/Toast';
 
 function BuyerDashboard() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [toasts, setToasts] = useState([]);
   const [activeOrders, setActiveOrders] = useState([]);
   const [quotations, setQuotations] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [produceRequests, setProduceRequests] = useState([]);
   const [requestProduct, setRequestProduct] = useState('');
   const [requestQuantity, setRequestQuantity] = useState('');
   const [requestDate, setRequestDate] = useState('');
+
+  // Add toast notification
+  const addToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+
+  // Remove toast
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       setUser(JSON.parse(userStr));
     }
+    
+    // Load saved produce requests from localStorage
+    const savedRequests = localStorage.getItem('produceRequests');
+    if (savedRequests) {
+      setProduceRequests(JSON.parse(savedRequests));
+    } else {
+      // Initial mock data only once
+      setProduceRequests([
+        { id: 1, product: 'Tomatoes', quantity: 100, requiredDate: '2024-01-20', status: 'pending', createdAt: '2024-01-10' }
+      ]);
+    }
+    
     fetchDashboardData();
     
     const interval = setInterval(fetchDashboardData, 10000);
     return () => clearInterval(interval);
   }, []);
 
+  // Save produce requests to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('produceRequests', JSON.stringify(produceRequests));
+  }, [produceRequests]);
+
   const fetchDashboardData = async () => {
     try {
+      // These are the ONLY things that should refresh
       setActiveOrders([
         { id: 1, product: 'Tomatoes', quantity: 100, status: 'in_transit', date: '2024-01-15' },
         { id: 2, product: 'Lettuce', quantity: 50, status: 'confirmed', date: '2024-01-16' }
@@ -52,16 +84,38 @@ function BuyerDashboard() {
     }
   };
 
-  const handleCreateRequest = async (e) => {
+  const handleCreateRequest = (e) => {
     e.preventDefault();
-    alert(`✅ Request created for ${requestQuantity}kg of ${requestProduct}`);
+    
+    if (!requestProduct || !requestQuantity || !requestDate) {
+      addToast('Please fill in all fields', 'error');
+      return;
+    }
+    
+    const newRequest = {
+      id: Date.now(), // Use timestamp for unique ID
+      product: requestProduct,
+      quantity: parseInt(requestQuantity),
+      requiredDate: requestDate,
+      status: 'pending',
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    
+    setProduceRequests(prev => [...prev, newRequest]);
+    addToast(`✅ Request created for ${requestQuantity}kg of ${requestProduct}`, 'success');
+    
     setRequestProduct('');
     setRequestQuantity('');
     setRequestDate('');
   };
 
   const handleApproveQuotation = async (quotationId) => {
-    alert(`✅ Quotation ${quotationId} approved! Email notification will be sent.`);
+    addToast(`✅ Quotation ${quotationId} approved! Farmer will be notified.`, 'success');
+  };
+
+  const handleDeleteRequest = (requestId, productName) => {
+    setProduceRequests(prev => prev.filter(req => req.id !== requestId));
+    addToast(`🗑️ Request for ${productName} deleted`, 'warning');
   };
 
   if (loading) {
@@ -76,6 +130,11 @@ function BuyerDashboard() {
 
   return (
     <div className="container-fluid mt-3 mb-5">
+      {/* Toast Notifications */}
+      {toasts.map(toast => (
+        <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />
+      ))}
+
       <div className="row">
         {/* Sidebar with Tabs */}
         <div className="col-md-2 col-12 mb-3">
@@ -91,6 +150,13 @@ function BuyerDashboard() {
                   style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}
                 >
                   📊 Dashboard
+                </button>
+                <button 
+                  className={`nav-link text-dark ${activeTab === 'requests' ? 'active fw-bold bg-success bg-opacity-10' : ''}`}
+                  onClick={() => setActiveTab('requests')}
+                  style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}
+                >
+                  📝 Produce Requests ({produceRequests.length})
                 </button>
                 <button 
                   className={`nav-link text-dark ${activeTab === 'orders' ? 'active fw-bold bg-success bg-opacity-10' : ''}`}
@@ -195,6 +261,59 @@ function BuyerDashboard() {
             </>
           )}
 
+          {/* PRODUCE REQUESTS TAB */}
+          {activeTab === 'requests' && (
+            <div className="card">
+              <div className="card-header bg-white">
+                <h5 className="mb-0">📝 My Produce Requests</h5>
+              </div>
+              <div className="card-body">
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>Quantity (kg)</th>
+                        <th>Required Date</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {produceRequests.map(request => (
+                        <tr key={request.id}>
+                          <td>{request.product}</td>
+                          <td>{request.quantity} kg</td>
+                           <td>{request.requiredDate}</td>
+                           <td>
+                            <span className={`badge bg-${request.status === 'pending' ? 'warning' : 'success'}`}>
+                              {request.status}
+                            </span>
+                           </td>
+                           <td>{request.createdAt}</td>
+                           <td>
+                            <button 
+                              className="btn btn-sm btn-outline-danger"
+                              onClick={() => handleDeleteRequest(request.id, request.product)}
+                            >
+                              Delete
+                            </button>
+                           </td>
+                         </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {produceRequests.length === 0 && (
+                    <div className="text-center py-4">
+                      <p className="text-muted">No produce requests yet. Create one from the Dashboard tab!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ORDERS TAB */}
           {activeTab === 'orders' && (
             <div className="card">
@@ -217,15 +336,15 @@ function BuyerDashboard() {
                       {activeOrders.map(order => (
                         <tr key={order.id}>
                           <td>#{order.id}</td>
-                          <td>{order.product}</td>
-                          <td>{order.quantity} kg</td>
-                          <td>
+                           <td>{order.product}</td>
+                           <td>{order.quantity} kg</td>
+                           <td>
                             <span className={`badge bg-${order.status === 'in_transit' ? 'warning' : 'info'}`}>
                               {order.status}
                             </span>
-                          </td>
-                          <td>{order.date}</td>
-                        </tr>
+                           </td>
+                           <td>{order.date}</td>
+                         </tr>
                       ))}
                     </tbody>
                   </table>
@@ -256,18 +375,18 @@ function BuyerDashboard() {
                       {quotations.map(quotation => (
                         <tr key={quotation.id}>
                           <td>{quotation.product}</td>
-                          <td>{quotation.quantity} kg</td>
-                          <td>{quotation.farmerName}</td>
-                          <td>Rs {quotation.totalAmount}</td>
-                          <td>
+                           <td>{quotation.quantity} kg</td>
+                           <td>{quotation.farmerName}</td>
+                           <td>Rs {quotation.totalAmount}</td>
+                           <td>
                             <button 
                               className="btn btn-sm btn-success"
                               onClick={() => handleApproveQuotation(quotation.id)}
                             >
                               Approve
                             </button>
-                          </td>
-                        </tr>
+                           </td>
+                         </tr>
                       ))}
                     </tbody>
                   </table>
@@ -297,14 +416,14 @@ function BuyerDashboard() {
                       {invoices.map(invoice => (
                         <tr key={invoice.id}>
                           <td>{invoice.id}</td>
-                          <td>Rs {invoice.amount}</td>
-                          <td>{invoice.dueDate}</td>
-                          <td>
+                           <td>Rs {invoice.amount}</td>
+                           <td>{invoice.dueDate}</td>
+                           <td>
                             <span className={`badge bg-${invoice.status === 'pending' ? 'warning' : 'success'}`}>
                               {invoice.status}
                             </span>
-                          </td>
-                        </tr>
+                           </td>
+                         </tr>
                       ))}
                     </tbody>
                   </table>
