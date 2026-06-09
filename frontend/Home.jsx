@@ -1,7 +1,7 @@
-// src/pages/Home.jsx - PROFESSIONAL LANDING PAGE
+// src/pages/Home.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import FloatingChat from '../components/FloatingChat';
+
 function Home() {
   return (
     <div>
@@ -36,45 +36,93 @@ function Home() {
         </div>
       </div>
 
-      {/* Problem Section */}
+      {/* Problem Section - 7 Pain Points */}
       <div className="container py-5">
         <div className="text-center mb-5">
           <h2 className="display-6 fw-bold">The Problem We're Solving</h2>
-          <p className="lead text-muted">Mauritian farmers and hotels face daily challenges</p>
+          <p className="lead text-muted">7 critical pain points in Mauritius agricultural supply chain</p>
         </div>
-        <div className="row g-4">
-          <div className="col-md-4">
-            <div className="card h-100 shadow-sm border-0">
-              <div className="card-body text-center p-4">
-                <div className="display-1 mb-3">🧑‍🌾</div>
-                <h5 className="fw-bold">Farmers</h5>
-                <p className="text-muted">Cannot find reliable buyers, forced to use word of mouth and informal networks</p>
+        
+        {/* Row 1 - 4 items */}
+        <div className="row g-3 mb-3">
+          <div className="col-md-6 col-lg-3">
+            <div className="card h-100 shadow-sm border-0 bg-light">
+              <div className="card-body text-center p-3">
+                <div className="fs-1 mb-2">🧑‍🌾</div>
+                <h6 className="fw-bold mb-1">Farmers</h6>
+                <p className="small text-muted mb-0">No guaranteed buyers</p>
+                <small className="text-danger">→ Rely on word of mouth</small>
               </div>
             </div>
           </div>
-          <div className="col-md-4">
-            <div className="card h-100 shadow-sm border-0">
-              <div className="card-body text-center p-4">
-                <div className="display-1 mb-3">🏨</div>
-                <h5 className="fw-bold">Hotels & Restaurants</h5>
-                <p className="text-muted">Struggle to source fresh local produce, forced to import or use distributors</p>
+          <div className="col-md-6 col-lg-3">
+            <div className="card h-100 shadow-sm border-0 bg-light">
+              <div className="card-body text-center p-3">
+                <div className="fs-1 mb-2">🏨</div>
+                <h6 className="fw-bold mb-1">Hotels & Restaurants</h6>
+                <p className="small text-muted mb-0">Cannot find fresh local produce consistently</p>
+                <small className="text-danger">→ Import or use distributors</small>
               </div>
             </div>
           </div>
-          <div className="col-md-4">
-            <div className="card h-100 shadow-sm border-0">
-              <div className="card-body text-center p-4">
-                <div className="display-1 mb-3">🌪️</div>
-                <h5 className="fw-bold">Supply Chain</h5>
-                <p className="text-muted">Cyclone disruptions break supply chains with no backup plan</p>
+          <div className="col-md-6 col-lg-3">
+            <div className="card h-100 shadow-sm border-0 bg-light">
+              <div className="card-body text-center p-3">
+                <div className="fs-1 mb-2">📞</div>
+                <h6 className="fw-bold mb-1">Manual Procurement</h6>
+                <p className="small text-muted mb-0">Slow and error-prone process</p>
+                <small className="text-danger">→ Phone calls & spreadsheets</small>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-6 col-lg-3">
+            <div className="card h-100 shadow-sm border-0 bg-light">
+              <div className="card-body text-center p-3">
+                <div className="fs-1 mb-2">🗑️</div>
+                <h6 className="fw-bold mb-1">Food Waste</h6>
+                <p className="small text-muted mb-0">Surplus produce gets discarded</p>
+                <small className="text-danger">→ Donated or thrown away</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Row 2 - 3 items centered */}
+        <div className="row g-3 justify-content-center">
+          <div className="col-md-6 col-lg-3">
+            <div className="card h-100 shadow-sm border-0 bg-light">
+              <div className="card-body text-center p-3">
+                <div className="fs-1 mb-2">📍</div>
+                <h6 className="fw-bold mb-1">No Delivery Visibility</h6>
+                <p className="small text-muted mb-0">No live tracking available</p>
+                <small className="text-danger">→ Call driver for updates</small>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-6 col-lg-3">
+            <div className="card h-100 shadow-sm border-0 bg-light">
+              <div className="card-body text-center p-3">
+                <div className="fs-1 mb-2">🌪️</div>
+                <h6 className="fw-bold mb-1">Cyclone Disruptions</h6>
+                <p className="small text-muted mb-0">Weather breaks supply chains</p>
+                <small className="text-danger">→ No backup plan</small>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-6 col-lg-3">
+            <div className="card h-100 shadow-sm border-0 bg-light">
+              <div className="card-body text-center p-3">
+                <div className="fs-1 mb-2">📊</div>
+                <h6 className="fw-bold mb-1">No Sustainability Reporting</h6>
+                <p className="small text-muted mb-0">No automated ESG metrics</p>
+                <small className="text-danger">→ Manual calculations</small>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Solution Section */}
-            {/* Solution Section - ALL 9 AGENTS */}
+      {/* Solution Section - 9 AI Agents */}
       <div className="bg-light py-5">
         <div className="container">
           <div className="text-center mb-5">
@@ -82,27 +130,24 @@ function Home() {
             <p className="lead text-muted">Working Together to Transform Agriculture</p>
           </div>
           <div className="row g-4">
-            {/* Agent 1 */}
             <div className="col-md-6 col-lg-4">
               <div className="text-center p-3">
                 <div className="bg-success bg-opacity-10 rounded-circle p-3 d-inline-block mb-3">
                   <span className="fs-1">📊</span>
                 </div>
                 <h6>1. Demand Forecast Agent</h6>
-                <small className="text-muted">Predicts produce demand using weather & tourism data</small>
+                <small className="text-muted">Predicts demand using weather & tourism data</small>
               </div>
             </div>
-            {/* Agent 2 */}
             <div className="col-md-6 col-lg-4">
               <div className="text-center p-3">
                 <div className="bg-success bg-opacity-10 rounded-circle p-3 d-inline-block mb-3">
                   <span className="fs-1">🤝</span>
                 </div>
                 <h6>2. Supplier Matching Agent</h6>
-                <small className="text-muted">Finds best-matched farmers by proximity & availability</small>
+                <small className="text-muted">Finds best-matched farmers by proximity</small>
               </div>
             </div>
-            {/* Agent 3 */}
             <div className="col-md-6 col-lg-4">
               <div className="text-center p-3">
                 <div className="bg-success bg-opacity-10 rounded-circle p-3 d-inline-block mb-3">
@@ -112,7 +157,6 @@ function Home() {
                 <small className="text-muted">Automatically negotiates fair prices</small>
               </div>
             </div>
-            {/* Agent 4 */}
             <div className="col-md-6 col-lg-4">
               <div className="text-center p-3">
                 <div className="bg-success bg-opacity-10 rounded-circle p-3 d-inline-block mb-3">
@@ -122,7 +166,6 @@ function Home() {
                 <small className="text-muted">Generates quotations & purchase orders</small>
               </div>
             </div>
-            {/* Agent 5 */}
             <div className="col-md-6 col-lg-4">
               <div className="text-center p-3">
                 <div className="bg-success bg-opacity-10 rounded-circle p-3 d-inline-block mb-3">
@@ -132,7 +175,6 @@ function Home() {
                 <small className="text-muted">Generates invoices & payment records</small>
               </div>
             </div>
-            {/* Agent 6 */}
             <div className="col-md-6 col-lg-4">
               <div className="text-center p-3">
                 <div className="bg-success bg-opacity-10 rounded-circle p-3 d-inline-block mb-3">
@@ -142,7 +184,6 @@ function Home() {
                 <small className="text-muted">Assigns drivers & calculates shortest routes</small>
               </div>
             </div>
-            {/* Agent 7 */}
             <div className="col-md-6 col-lg-4">
               <div className="text-center p-3">
                 <div className="bg-success bg-opacity-10 rounded-circle p-3 d-inline-block mb-3">
@@ -152,7 +193,6 @@ function Home() {
                 <small className="text-muted">Monitors weather & suggests alternatives</small>
               </div>
             </div>
-            {/* Agent 8 */}
             <div className="col-md-6 col-lg-4">
               <div className="text-center p-3">
                 <div className="bg-success bg-opacity-10 rounded-circle p-3 d-inline-block mb-3">
@@ -162,7 +202,6 @@ function Home() {
                 <small className="text-muted">Lists surplus food & matches with buyers</small>
               </div>
             </div>
-            {/* Agent 9 */}
             <div className="col-md-6 col-lg-4">
               <div className="text-center p-3">
                 <div className="bg-success bg-opacity-10 rounded-circle p-3 d-inline-block mb-3">
@@ -190,7 +229,7 @@ function Home() {
             </div>
             <div className="col-md-3 mb-3 mb-md-0">
               <div className="display-4 fw-bold">100%</div>
-              <div>Local Sourcing</div>
+              <div>Local Sourcing Goal</div>
             </div>
             <div className="col-md-3 mb-3 mb-md-0">
               <div className="display-4 fw-bold">0%</div>
@@ -208,8 +247,6 @@ function Home() {
           Create Free Account →
         </Link>
       </div>
-      {/* Floating AI Chat */}
-      <FloatingChat currentPage="Home" userRole={null} />
     </div>
   );
 }
