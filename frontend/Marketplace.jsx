@@ -1,12 +1,25 @@
 // src/pages/Marketplace.jsx
 import React, { useState, useEffect } from 'react';
 import FloatingChat from '../components/FloatingChat';
+import Toast from '../components/Toast';
 
 function Marketplace() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [toasts, setToasts] = useState([]);
+
+  // Add toast notification
+  const addToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+
+  // Remove toast
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -18,8 +31,11 @@ function Marketplace() {
 
   const fetchListings = async () => {
     try {
-      // Mock data - will be replaced with GET /api/waste
-      setListings([
+      // Get farmer listings from localStorage
+      const farmerListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
+      
+      // Mock data
+      const mockListings = [
         {
           id: 1,
           farmer: "Jean-Pierre Farm",
@@ -56,7 +72,10 @@ function Marketplace() {
           status: "available",
           reason: "Overproduction"
         }
-      ]);
+      ];
+      
+      // Combine mock data with farmer listings
+      setListings([...mockListings, ...farmerListings]);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching marketplace listings:', error);
@@ -65,20 +84,19 @@ function Marketplace() {
 
   const handleReserve = async (listing) => {
     if (!user || user.role !== 'buyer') {
-      alert('Please login as a buyer to reserve food');
+      addToast('Please login as a buyer to reserve food', 'error');
       return;
     }
     
-    try {
-      // TODO: Replace with POST /api/waste
-      alert(`✅ Reserved ${listing.quantity}kg of ${listing.product} from ${listing.farmer} at Rs ${listing.discountedPrice}/kg!\n\nFarmer will be notified.`);
-      
-      // Remove from listings or mark as reserved
-      setListings(listings.filter(l => l.id !== listing.id));
-    } catch (error) {
-      console.error('Error reserving:', error);
-      alert('Failed to reserve. Please try again.');
-    }
+    // Remove from listings
+    setListings(listings.filter(l => l.id !== listing.id));
+    
+    // Also remove from localStorage if it's a farmer listing
+    const farmerListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
+    const updatedFarmerListings = farmerListings.filter(l => l.id !== listing.id);
+    localStorage.setItem('marketplaceListings', JSON.stringify(updatedFarmerListings));
+    
+    addToast(`✅ Reserved ${listing.quantity}kg of ${listing.product} from ${listing.farmer} at Rs ${listing.discountedPrice}/kg!`, 'success');
   };
 
   const getExpiryBadge = (expiryDate) => {
@@ -107,6 +125,11 @@ function Marketplace() {
 
   return (
     <div className="container mt-4 mb-5">
+      {/* Toast Notifications */}
+      {toasts.map(toast => (
+        <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />
+      ))}
+
       {/* Header */}
       <div className="row mb-4">
         <div className="col-12">
