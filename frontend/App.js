@@ -2,7 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Home from './pages/Home';
+import HomePage from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import BuyerDashboard from './pages/BuyerDashboard';
@@ -10,13 +10,14 @@ import FarmerDashboard from './pages/FarmerDashboard';
 import DeliveryDashboard from './pages/DeliveryDashboard';
 import Marketplace from './pages/Marketplace';
 import AdminDashboard from './pages/AdminDashboard';
+
 function App() {
   return (
     <Router>
       <Navbar />
       <div className="App">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
