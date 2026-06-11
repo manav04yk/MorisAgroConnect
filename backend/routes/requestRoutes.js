@@ -5,17 +5,13 @@ const requestController = require('../controllers/requestController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
-router.post(
-  '/',
-  authMiddleware,
-  roleMiddleware('buyer'),
-  requestController.createRequest
-);
+// Get all requests for the logged-in user (buyer sees their own)
+router.get('/', authMiddleware, requestController.getRequests);
 
-router.get(
-  '/:id',
-  authMiddleware,
-  requestController.getRequestById
-);
+// Get single request by ID
+router.get('/:id', authMiddleware, requestController.getRequestById);
+
+// Create new request (buyers only)
+router.post('/', authMiddleware, roleMiddleware('buyer'), requestController.createRequest);
 
 module.exports = router;
