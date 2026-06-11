@@ -52,9 +52,40 @@ exports.createRequest = async (req, res) => {
   }
 };
 
+exports.getRequests = async (req, res) => {
+  try {
+    const buyerId = req.user.id;
+    
+    const [requests] = await db.query(
+      `SELECT 
+        dr.id,
+        dr.buyer_id,
+        u.name AS buyer_name,
+        dr.product_name,
+        dr.quantity_kg,
+        dr.required_date,
+        dr.status,
+        dr.created_at
+       FROM demand_requests dr
+       JOIN users u ON dr.buyer_id = u.id
+       WHERE dr.buyer_id = ?
+       ORDER BY dr.created_at DESC`,
+      [buyerId]
+    );
+    
+    res.json(requests);
+  } catch (error) {
+    console.error('Get requests error:', error);
+    res.status(500).json({
+      error: 'Server error while fetching requests'
+    });
+  }
+};
+
 exports.getRequestById = async (req, res) => {
   try {
     const { id } = req.params;
+    const buyerId = req.user.id;
 
     const [requests] = await db.query(
       `SELECT 
@@ -68,8 +99,8 @@ exports.getRequestById = async (req, res) => {
         dr.created_at
        FROM demand_requests dr
        JOIN users u ON dr.buyer_id = u.id
-       WHERE dr.id = ?`,
-      [id]
+       WHERE dr.id = ? AND dr.buyer_id = ?`,
+      [id, buyerId]
     );
 
     if (requests.length === 0) {
@@ -78,15 +109,7 @@ exports.getRequestById = async (req, res) => {
       });
     }
 
-    const request = requests[0];
-
-    if (req.user.role === 'buyer' && request.buyer_id !== req.user.id) {
-      return res.status(403).json({
-        error: 'Forbidden. You can only view your own requests'
-      });
-    }
-
-    res.json(request);
+    res.json(requests[0]);
   } catch (error) {
     console.error('Get request error:', error);
     res.status(500).json({
