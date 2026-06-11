@@ -214,7 +214,6 @@ function FarmerDashboard() {
       return;
     }
     
-    // Get existing listings
     const existingListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
     
     const newListing = {
@@ -235,10 +234,8 @@ function FarmerDashboard() {
     
     addToast(`✅ Listed ${quantity}kg of ${selectedProduct.name} on Marketplace at Rs ${discountPrice}/kg!`, 'success');
     
-    // Refresh the farmer's own listings display
     loadFarmerListings(user?.name);
     
-    // Clear form
     document.getElementById('surplusQuantity').value = '';
     document.getElementById('surplusDiscount').value = '';
     productSelect.value = '';
@@ -578,9 +575,9 @@ function FarmerDashboard() {
                     </thead>
                     <tbody>
                       {farmerListings.length === 0 ? (
-                        <td>
+                        <tr>
                           <td colSpan="6" className="text-center text-muted">No listings yet. Add some surplus food above!</td>
-                        </td>
+                        </tr>
                       ) : (
                         farmerListings.map(listing => (
                           <tr key={listing.id}>
