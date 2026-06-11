@@ -95,3 +95,96 @@ exports.getFarmerInventory = async (req, res) => {
     });
   }
 };
+
+// Reduce inventory when buyer reserves surplus food
+exports.reduceInventory = async (req, res) => {
+  try {
+    const { farmer_id, product_name, quantity_kg } = req.body;
+
+    if (!farmer_id || !product_name || quantity_kg === undefined) {
+      return res.status(400).json({
+        error: 'farmer_id, product_name, and quantity_kg are required'
+      });
+    }
+
+    if (Number(quantity_kg) <= 0) {
+      return res.status(400).json({
+        error: 'quantity_kg must be greater than 0'
+      });
+    }
+
+    const [products] = await db.query(
+      'SELECT * FROM products WHERE farmer_id = ? AND name = ?',
+      [farmer_id, product_name]
+    );
+
+    if (products.length === 0) {
+      return res.status(404).json({
+        error: `Product "${product_name}" not found in farmer's inventory`
+      });
+    }
+
+    const product = products[0];
+    const newQuantity = product.quantity_kg - Number(quantity_kg);
+
+    if (newQuantity < 0) {
+      return res.status(400).json({
+        error: `Insufficient inventory. Only ${product.quantity_kg} kg of ${product_name} available`
+      });
+    }
+
+    await db.query(
+      'UPDATE products SET quantity_kg = ? WHERE id = ?',
+      [newQuantity, product.id]
+    );
+
+    const [updatedProduct] = await db.query(
+      'SELECT * FROM products WHERE id = ?',
+      [product.id]
+    );
+
+    res.json({
+      message: 'Inventory updated successfully',
+      product: updatedProduct[0],
+      previous_quantity: product.quantity_kg,
+      new_quantity: newQuantity,
+      reduced_by: quantity_kg
+    });
+  } catch (error) {
+    console.error('Reduce inventory error:', error);
+    res.status(500).json({
+      error: 'Server error while reducing inventory'
+    });
+  }
+};
+
+// Delete product from inventory
+exports.deleteProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const farmerId = req.user.id;
+
+    const [products] = await db.query(
+      'SELECT * FROM products WHERE id = ? AND farmer_id = ?',
+      [productId, farmerId]
+    );
+
+    if (products.length === 0) {
+      return res.status(404).json({
+        error: 'Product not found or does not belong to you'
+      });
+    }
+
+    await db.query('DELETE FROM products WHERE id = ?', [productId]);
+
+    res.json({
+      message: 'Product deleted successfully',
+      product: products[0]
+    });
+  } catch (error) {
+    console.error('Delete product error:', error);
+    res.status(500).json({
+      error: 'Server error while deleting product'
+    });
+  }
+};
