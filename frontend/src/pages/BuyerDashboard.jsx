@@ -1,33 +1,25 @@
 // src/pages/BuyerDashboard.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import SustainabilityTicker from '../components/SustainabilityTicker';
 import FloatingChat from '../components/FloatingChat';
 import Toast from '../components/Toast';
-import SustainabilityTicker from '../components/SustainabilityTicker';
-
-import {
-  getOrders,
-  getQuotations,
-  getInvoices,
-  getDeliveries,
-  createProduceRequest,
-  approveQuotation
-} from '../utils/api';
+import api from '../utils/api';
 
 function BuyerDashboard() {
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [toasts, setToasts] = useState([]);
-  const [loading, setLoading] = useState(true);
-
   const [activeOrders, setActiveOrders] = useState([]);
   const [quotations, setQuotations] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [produceRequests, setProduceRequests] = useState([]);
-
+  const [loading, setLoading] = useState(true);
   const [requestProduct, setRequestProduct] = useState('');
   const [requestQuantity, setRequestQuantity] = useState('');
   const [requestDate, setRequestDate] = useState('');
+  const navigate = useNavigate();
 
   const addToast = (message, type = 'success') => {
     const id = Date.now();
@@ -40,114 +32,126 @@ function BuyerDashboard() {
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
-
-    if (userStr) {
-      setUser(JSON.parse(userStr));
+    if (!userStr) {
+      navigate('/login');
+      return;
     }
-
-    fetchDashboardData();
-
-    const interval = setInterval(fetchDashboardData, 10000);
+    
+    const currentUser = JSON.parse(userStr);
+    if (currentUser.role !== 'buyer') {
+      navigate('/');
+      return;
+    }
+    
+    setUser(currentUser);
+    fetchAllData();
+    
+    const interval = setInterval(fetchAllData, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [navigate]);
 
-  const fetchDashboardData = async () => {
+  const fetchAllData = async () => {
     try {
-      setLoading(true);
-
-      const [ordersRes, quotationsRes, invoicesRes, deliveriesRes] = await Promise.all([
-        getOrders(),
-        getQuotations(),
-        getInvoices(),
-        getDeliveries()
+      await Promise.all([
+        fetchRequests(),
+        fetchQuotations(),
+        fetchOrders(),
+        fetchInvoices(),
+        fetchDeliveries()
       ]);
-
-      setActiveOrders(ordersRes.data);
-      setQuotations(quotationsRes.data);
-      setInvoices(invoicesRes.data);
-      setDeliveries(deliveriesRes.data);
-
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching buyer dashboard data:', error);
-      addToast(error.response?.data?.error || 'Failed to load dashboard data', 'error');
+      console.error('Error fetching data:', error);
       setLoading(false);
+    }
+  };
+
+  const fetchRequests = async () => {
+    try {
+      const response = await api.get('/requests');
+      setProduceRequests(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching requests:', error);
+      setProduceRequests([]);
+    }
+  };
+
+  const fetchQuotations = async () => {
+    try {
+      const response = await api.get('/quotations');
+      setQuotations(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching quotations:', error);
+      setQuotations([]);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      const response = await api.get('/orders');
+      setActiveOrders(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      setActiveOrders([]);
+    }
+  };
+
+  const fetchInvoices = async () => {
+    try {
+      const response = await api.get('/invoices');
+      setInvoices(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      setInvoices([]);
+    }
+  };
+
+  const fetchDeliveries = async () => {
+    try {
+      const response = await api.get('/deliveries');
+      setDeliveries(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching deliveries:', error);
+      setDeliveries([]);
     }
   };
 
   const handleCreateRequest = async (e) => {
     e.preventDefault();
-
+    
     if (!requestProduct || !requestQuantity || !requestDate) {
       addToast('Please fill in all fields', 'error');
       return;
     }
-
-    if (Number(requestQuantity) <= 0) {
-      addToast('Quantity must be greater than 0', 'error');
-      return;
-    }
-
+    
     try {
-      const response = await createProduceRequest({
+      await api.post('/requests', {
         product_name: requestProduct,
-        quantity_kg: Number(requestQuantity),
+        quantity_kg: parseInt(requestQuantity),
         required_date: requestDate
       });
-
-      setProduceRequests(prev => [...prev, response.data.request]);
-
-      addToast(
-        `✅ Request created for ${requestQuantity}kg of ${requestProduct}`,
-        'success'
-      );
-
+      
+      addToast(`✅ Request created for ${requestQuantity}kg of ${requestProduct}`, 'success');
+      
       setRequestProduct('');
       setRequestQuantity('');
       setRequestDate('');
-
-      fetchDashboardData();
+      fetchRequests();
     } catch (error) {
-      console.error('Create request error:', error);
+      console.error('Error creating request:', error);
       addToast(error.response?.data?.error || 'Failed to create request', 'error');
     }
   };
 
   const handleApproveQuotation = async (quotationId) => {
     try {
-      await approveQuotation(quotationId);
-
-      addToast(
-        `✅ Quotation ${quotationId} approved. Order and invoice created.`,
-        'success'
-      );
-
-      fetchDashboardData();
+      await api.patch(`/quotations/${quotationId}/approve`);
+      addToast(`✅ Quotation approved! Order and invoice created.`, 'success');
+      fetchAllData();
     } catch (error) {
-      console.error('Approve quotation error:', error);
+      console.error('Error approving quotation:', error);
       addToast(error.response?.data?.error || 'Failed to approve quotation', 'error');
     }
-  };
-
-  const getStatusBadge = (status) => {
-    const badges = {
-      pending: 'bg-warning text-dark',
-      approved: 'bg-success',
-      rejected: 'bg-danger',
-      confirmed: 'bg-primary',
-      in_transit: 'bg-info',
-      delivered: 'bg-success',
-      assigned: 'bg-warning text-dark',
-      picked_up: 'bg-primary',
-      paid: 'bg-success'
-    };
-
-    return badges[status] || 'bg-secondary';
-  };
-
-  const formatDate = (dateValue) => {
-    if (!dateValue) return 'N/A';
-    return new Date(dateValue).toLocaleDateString();
   };
 
   if (loading) {
@@ -163,394 +167,334 @@ function BuyerDashboard() {
   return (
     <div className="container-fluid mt-3 mb-5">
       {toasts.map(toast => (
-        <Toast
-          key={toast.id}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => removeToast(toast.id)}
-        />
+        <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />
       ))}
 
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="card bg-success text-white">
+      <div className="row">
+        {/* Sidebar */}
+        <div className="col-md-2 col-12 mb-3">
+          <div className="card">
             <div className="card-body">
-              <h2 className="fw-bold mb-1">🏨 Buyer Dashboard</h2>
-              <p className="mb-0">
-                Welcome back, {user?.name || 'Buyer'}.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {user?.id && (
-        <div className="mb-4">
-          <SustainabilityTicker buyerId={user.id} />
-        </div>
-      )}
-
-      <div className="row mb-4">
-        <div className="col-md-3 col-6 mb-3">
-          <div className="card text-center">
-            <div className="card-body">
-              <h6>Orders</h6>
-              <h3 className="text-success">{activeOrders.length}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-md-3 col-6 mb-3">
-          <div className="card text-center">
-            <div className="card-body">
-              <h6>Quotations</h6>
-              <h3 className="text-primary">{quotations.length}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-md-3 col-6 mb-3">
-          <div className="card text-center">
-            <div className="card-body">
-              <h6>Invoices</h6>
-              <h3 className="text-warning">{invoices.length}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-md-3 col-6 mb-3">
-          <div className="card text-center">
-            <div className="card-body">
-              <h6>Deliveries</h6>
-              <h3 className="text-info">{deliveries.length}</h3>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="card mb-4">
-        <div className="card-body">
-          <nav className="nav nav-pills flex-wrap gap-2">
-            {['overview', 'request', 'quotations', 'orders', 'invoices', 'deliveries'].map(tab => (
-              <button
-                key={tab}
-                className={`nav-link ${activeTab === tab ? 'active bg-success' : 'text-success'}`}
-                onClick={() => setActiveTab(tab)}
-                style={{ border: '1px solid #198754' }}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </nav>
-        </div>
-      </div>
-
-      {activeTab === 'overview' && (
-        <div className="card">
-          <div className="card-header bg-white">
-            <h5 className="mb-0">📊 Overview</h5>
-          </div>
-
-          <div className="card-body">
-            <p>
-              Use this dashboard to create produce requests, review quotations,
-              approve quotations, view invoices, and track deliveries.
-            </p>
-
-            <div className="alert alert-info">
-              <strong>Tip:</strong> Create a request first. Once Salesforce/backend creates a quotation,
-              it will appear in the quotations tab.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'request' && (
-        <div className="card">
-          <div className="card-header bg-white">
-            <h5 className="mb-0">📝 Create Produce Request</h5>
-          </div>
-
-          <div className="card-body">
-            <form onSubmit={handleCreateRequest} className="row g-3">
-              <div className="col-md-4">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Product name e.g. Tomatoes"
-                  value={requestProduct}
-                  onChange={(e) => setRequestProduct(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="col-md-3">
-                <input
-                  type="number"
-                  className="form-control"
-                  placeholder="Quantity kg"
-                  value={requestQuantity}
-                  onChange={(e) => setRequestQuantity(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="col-md-3">
-                <input
-                  type="date"
-                  className="form-control"
-                  value={requestDate}
-                  onChange={(e) => setRequestDate(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="col-md-2">
-                <button type="submit" className="btn btn-success w-100">
-                  Create
+              <h6 className="fw-bold">Welcome back,</h6>
+              <p className="text-success fw-bold">{user?.name || 'Buyer'}</p>
+              <hr />
+              <nav className="nav flex-column">
+                <button 
+                  className={`nav-link text-dark ${activeTab === 'dashboard' ? 'active fw-bold bg-success bg-opacity-10' : ''}`}
+                  onClick={() => setActiveTab('dashboard')}
+                  style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}
+                >
+                  📊 Dashboard
                 </button>
-              </div>
-            </form>
+                <button 
+                  className={`nav-link text-dark ${activeTab === 'requests' ? 'active fw-bold bg-success bg-opacity-10' : ''}`}
+                  onClick={() => setActiveTab('requests')}
+                  style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}
+                >
+                  📝 Produce Requests ({produceRequests.length})
+                </button>
+                <button 
+                  className={`nav-link text-dark ${activeTab === 'quotations' ? 'active fw-bold bg-success bg-opacity-10' : ''}`}
+                  onClick={() => setActiveTab('quotations')}
+                  style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}
+                >
+                  💰 Quotations ({quotations.filter(q => q.status === 'pending').length})
+                </button>
+                <button 
+                  className={`nav-link text-dark ${activeTab === 'orders' ? 'active fw-bold bg-success bg-opacity-10' : ''}`}
+                  onClick={() => setActiveTab('orders')}
+                  style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}
+                >
+                  📦 Orders ({activeOrders.length})
+                </button>
+                <button 
+                  className={`nav-link text-dark ${activeTab === 'invoices' ? 'active fw-bold bg-success bg-opacity-10' : ''}`}
+                  onClick={() => setActiveTab('invoices')}
+                  style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}
+                >
+                  📄 Invoices ({invoices.filter(i => i.status === 'pending').length})
+                </button>
+                <a className="nav-link text-dark" href="/marketplace">
+                  🛒 Marketplace
+                </a>
+              </nav>
+            </div>
+          </div>
+        </div>
 
-            {produceRequests.length > 0 && (
-              <div className="mt-4">
-                <h6>Recently Created Requests</h6>
+        {/* Main Content */}
+        <div className="col-md-10 col-12">
+          <div className="mb-4">
+            <h2 className="text-success">📊 Buyer Dashboard</h2>
+          </div>
+          
+          {/* DASHBOARD TAB */}
+          {activeTab === 'dashboard' && (
+            <>
+              <SustainabilityTicker buyerId={user?.id} />
+
+              <div className="card mb-4">
+                <div className="card-header bg-white">
+                  <h5 className="mb-0">📝 Create New Produce Request</h5>
+                </div>
+                <div className="card-body">
+                  <form onSubmit={handleCreateRequest} className="row g-3">
+                    <div className="col-md-4">
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Product name (e.g., Tomatoes)"
+                        value={requestProduct}
+                        onChange={(e) => setRequestProduct(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-3">
+                      <input
+                        type="number"
+                        className="form-control"
+                        placeholder="Quantity (kg)"
+                        value={requestQuantity}
+                        onChange={(e) => setRequestQuantity(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-3">
+                      <input
+                        type="date"
+                        className="form-control"
+                        value={requestDate}
+                        onChange={(e) => setRequestDate(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-2">
+                      <button type="submit" className="btn btn-success w-100">
+                        Submit Request
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-header bg-white">
+                  <h5 className="mb-0">🚚 Active Deliveries</h5>
+                </div>
+                <div className="card-body">
+                  {deliveries.filter(d => d.status !== 'delivered').length === 0 ? (
+                    <p className="text-muted text-center">No active deliveries</p>
+                  ) : (
+                    deliveries.filter(d => d.status !== 'delivered').map(delivery => (
+                      <div key={delivery.id} className="alert alert-info">
+                        <strong>Order #{delivery.order_id}</strong> - ETA: {delivery.eta || 'Calculating...'} - Driver: {delivery.driver_name || 'Assigning...'}
+                        <div className="progress mt-2">
+                          <div className="progress-bar bg-success" style={{ width: delivery.status === 'picked_up' ? '50%' : '25%' }}>
+                            {delivery.status === 'picked_up' ? 'Picked Up' : 'Assigned'}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* PRODUCE REQUESTS TAB */}
+          {activeTab === 'requests' && (
+            <div className="card">
+              <div className="card-header bg-white">
+                <h5 className="mb-0">📝 My Produce Requests</h5>
+              </div>
+              <div className="card-body">
                 <div className="table-responsive">
                   <table className="table table-hover">
                     <thead>
                       <tr>
-                        <th>ID</th>
                         <th>Product</th>
-                        <th>Quantity</th>
+                        <th>Quantity (kg)</th>
                         <th>Required Date</th>
                         <th>Status</th>
+                        <th>Created</th>
                       </tr>
                     </thead>
-
                     <tbody>
-                      {produceRequests.map(request => (
-                        <tr key={request.id}>
-                          <td>{request.id}</td>
-                          <td>{request.product_name}</td>
-                          <td>{Number(request.quantity_kg)} kg</td>
-                          <td>{formatDate(request.required_date)}</td>
-                          <td>
-                            <span className={`badge ${getStatusBadge(request.status)}`}>
-                              {request.status}
-                            </span>
-                          </td>
+                      {produceRequests.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="text-center text-muted">No produce requests yet. Create one from the Dashboard tab!</td>
                         </tr>
-                      ))}
+                      ) : (
+                        produceRequests.map(request => (
+                          <tr key={request.id}>
+                            <td>{request.product_name}</td>
+                            <td>{request.quantity_kg} kg</td>
+                            <td>{request.required_date?.split('T')[0] || request.required_date}</td>
+                            <td>
+                              <span className={`badge bg-${request.status === 'pending' ? 'warning' : 'success'}`}>
+                                {request.status}
+                              </span>
+                            </td>
+                            <td>{request.created_at?.split('T')[0]}</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {activeTab === 'quotations' && (
-        <div className="card">
-          <div className="card-header bg-white">
-            <h5 className="mb-0">💬 Quotations</h5>
-          </div>
-
-          <div className="card-body">
-            {quotations.length === 0 ? (
-              <p className="text-muted text-center">No quotations yet.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Farmer</th>
-                      <th>Product</th>
-                      <th>Quantity</th>
-                      <th>Total</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {quotations.map(q => (
-                      <tr key={q.id}>
-                        <td>{q.id}</td>
-                        <td>{q.farmer_name}</td>
-                        <td>{q.product_name}</td>
-                        <td>{Number(q.quantity_kg)} kg</td>
-                        <td>Rs {Number(q.total_amount).toLocaleString()}</td>
-                        <td>
-                          <span className={`badge ${getStatusBadge(q.status)}`}>
-                            {q.status}
-                          </span>
-                        </td>
-                        <td>
-                          {q.status === 'pending' ? (
-                            <button
-                              className="btn btn-sm btn-success"
-                              onClick={() => handleApproveQuotation(q.id)}
-                            >
-                              Approve
-                            </button>
-                          ) : (
-                            <span className="text-muted">No action</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* QUOTATIONS TAB */}
+          {activeTab === 'quotations' && (
+            <div className="card">
+              <div className="card-header bg-white">
+                <h5 className="mb-0">💰 Quotations</h5>
+                <small className="text-muted">Quotations appear here after Agentforce processes your requests</small>
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'orders' && (
-        <div className="card">
-          <div className="card-header bg-white">
-            <h5 className="mb-0">📦 Orders</h5>
-          </div>
-
-          <div className="card-body">
-            {activeOrders.length === 0 ? (
-              <p className="text-muted text-center">No orders yet.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Farmer</th>
-                      <th>Product</th>
-                      <th>Quantity</th>
-                      <th>Total</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {activeOrders.map(order => (
-                      <tr key={order.id}>
-                        <td>{order.id}</td>
-                        <td>{order.farmer_name}</td>
-                        <td>{order.product_name}</td>
-                        <td>{Number(order.quantity_kg)} kg</td>
-                        <td>Rs {Number(order.total_amount).toLocaleString()}</td>
-                        <td>
-                          <span className={`badge ${getStatusBadge(order.status)}`}>
-                            {order.status}
-                          </span>
-                        </td>
+              <div className="card-body">
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Farmer</th>
+                        <th>Total Amount</th>
+                        <th>Status</th>
+                        <th>Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {quotations.length === 0 ? (
+                        <tr>
+                          <td colSpan="6" className="text-center text-muted">No quotations yet. Agentforce will generate quotations from your produce requests.</td>
+                        </tr>
+                      ) : (
+                        quotations.map(quotation => (
+                          <tr key={quotation.id}>
+                            <td>{quotation.product_name}</td>
+                            <td>{quotation.quantity_kg} kg</td>
+                            <td>{quotation.farmer_name}</td>
+                            <td>Rs {quotation.total_amount}</td>
+                            <td>
+                              <span className={`badge bg-${quotation.status === 'pending' ? 'warning' : 'success'}`}>
+                                {quotation.status}
+                              </span>
+                            </td>
+                            <td>
+                              {quotation.status === 'pending' && (
+                                <button 
+                                  className="btn btn-sm btn-success"
+                                  onClick={() => handleApproveQuotation(quotation.id)}
+                                >
+                                  Approve
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {activeTab === 'invoices' && (
-        <div className="card">
-          <div className="card-header bg-white">
-            <h5 className="mb-0">🧾 Invoices</h5>
-          </div>
-
-          <div className="card-body">
-            {invoices.length === 0 ? (
-              <p className="text-muted text-center">No invoices yet.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Order</th>
-                      <th>Farmer</th>
-                      <th>Product</th>
-                      <th>Amount</th>
-                      <th>Due Date</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {invoices.map(invoice => (
-                      <tr key={invoice.id}>
-                        <td>{invoice.id}</td>
-                        <td>{invoice.order_id}</td>
-                        <td>{invoice.farmer_name}</td>
-                        <td>{invoice.product_name}</td>
-                        <td>Rs {Number(invoice.amount).toLocaleString()}</td>
-                        <td>{formatDate(invoice.due_date)}</td>
-                        <td>
-                          <span className={`badge ${getStatusBadge(invoice.status)}`}>
-                            {invoice.status}
-                          </span>
-                        </td>
+          {/* ORDERS TAB */}
+          {activeTab === 'orders' && (
+            <div className="card">
+              <div className="card-header bg-white">
+                <h5 className="mb-0">📦 My Orders</h5>
+                <small className="text-muted">Orders appear after you approve quotations</small>
+              </div>
+              <div className="card-body">
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Farmer</th>
+                        <th>Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {activeOrders.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="text-center text-muted">No orders yet. Orders appear after you approve quotations.</td>
+                        </tr>
+                      ) : (
+                        activeOrders.map(order => (
+                          <tr key={order.id}>
+                            <td>#{order.id}</td>
+                            <td>{order.product_name}</td>
+                            <td>{order.quantity_kg} kg</td>
+                            <td>{order.farmer_name}</td>
+                            <td>
+                              <span className={`badge bg-${order.status === 'delivered' ? 'success' : order.status === 'in_transit' ? 'warning' : 'info'}`}>
+                                {order.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {activeTab === 'deliveries' && (
-        <div className="card">
-          <div className="card-header bg-white">
-            <h5 className="mb-0">🚚 Deliveries</h5>
-          </div>
-
-          <div className="card-body">
-            {deliveries.length === 0 ? (
-              <p className="text-muted text-center">No deliveries yet.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Order</th>
-                      <th>Driver</th>
-                      <th>Product</th>
-                      <th>Route</th>
-                      <th>ETA</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {deliveries.map(delivery => (
-                      <tr key={delivery.id}>
-                        <td>{delivery.id}</td>
-                        <td>{delivery.order_id}</td>
-                        <td>{delivery.driver_name || 'Not assigned'}</td>
-                        <td>{delivery.product_name}</td>
-                        <td>{delivery.route || 'N/A'}</td>
-                        <td>{delivery.eta || 'N/A'}</td>
-                        <td>
-                          <span className={`badge ${getStatusBadge(delivery.status)}`}>
-                            {delivery.status}
-                          </span>
-                        </td>
+          {/* INVOICES TAB */}
+          {activeTab === 'invoices' && (
+            <div className="card">
+              <div className="card-header bg-white">
+                <h5 className="mb-0">📄 My Invoices</h5>
+                <small className="text-muted">Invoices appear after orders are confirmed</small>
+              </div>
+              <div className="card-body">
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>Invoice #</th>
+                        <th>Amount</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {invoices.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" className="text-center text-muted">No invoices yet. Invoices appear after orders are confirmed.</td>
+                        </tr>
+                      ) : (
+                        invoices.map(invoice => (
+                          <tr key={invoice.id}>
+                            <td>#{invoice.id}</td>
+                            <td>Rs {invoice.amount}</td>
+                            <td>{invoice.due_date?.split('T')[0]}</td>
+                            <td>
+                              <span className={`badge bg-${invoice.status === 'pending' ? 'warning' : 'success'}`}>
+                                {invoice.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      )}
-
+      </div>
+      
       <FloatingChat currentPage="Buyer Dashboard" userRole="buyer" />
     </div>
   );
