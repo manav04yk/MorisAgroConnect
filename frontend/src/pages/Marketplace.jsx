@@ -29,39 +29,13 @@ function Marketplace() {
 
   const fetchListings = async () => {
     try {
+      // ONLY get farmer listings from localStorage - NO mock data
       const farmerListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
-      
-      const mockListings = [
-        {
-          id: 1,
-          farmer: "Jean-Pierre Farm",
-          farmerLocation: "Riviere du Rempart",
-          product: "Tomatoes",
-          quantity: 20,
-          originalPrice: 38,
-          discountedPrice: 25,
-          expiryDate: "2024-12-20",
-          status: "available",
-          reason: "Surplus harvest"
-        },
-        {
-          id: 2,
-          farmer: "Green Farms MU",
-          farmerLocation: "Curepipe",
-          product: "Lettuce",
-          quantity: 15,
-          originalPrice: 25,
-          discountedPrice: 15,
-          expiryDate: "2024-12-18",
-          status: "available",
-          reason: "Near expiry"
-        }
-      ];
-      
-      setListings([...mockListings, ...farmerListings]);
+      setListings(farmerListings);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching marketplace listings:', error);
+      setListings([]);
       setLoading(false);
     }
   };
@@ -73,6 +47,7 @@ function Marketplace() {
     }
     
     try {
+      // Find the farmer ID by name
       const userResponse = await api.get('/users/search', { 
         params: { name: listing.farmer } 
       });
@@ -84,16 +59,19 @@ function Marketplace() {
       
       const farmerId = userResponse.data.id;
       
+      // Reduce the farmer's inventory
       await api.post('/inventory/reduce', {
         farmer_id: farmerId,
         product_name: listing.product,
         quantity_kg: listing.quantity
       });
       
+      // Remove from localStorage
       const farmerListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
       const updatedListings = farmerListings.filter(l => l.id !== listing.id);
       localStorage.setItem('marketplaceListings', JSON.stringify(updatedListings));
       
+      // Update displayed listings
       setListings(listings.filter(l => l.id !== listing.id));
       
       addToast(`✅ Reserved ${listing.quantity}kg of ${listing.product}! Inventory updated.`, 'success');
