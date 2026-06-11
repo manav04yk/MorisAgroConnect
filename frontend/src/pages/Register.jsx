@@ -9,7 +9,7 @@ function Register() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'buyer', // Default role
+    role: 'buyer',
     location: ''
   });
   const [error, setError] = useState('');
@@ -27,23 +27,25 @@ function Register() {
     e.preventDefault();
     setError('');
 
-    // Check if passwords match
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Remove confirmPassword before sending to API
       const { confirmPassword, ...userData } = formData;
       await register(userData);
       
-      // Redirect to login page after successful registration
-      navigate('/login', { 
-        state: { message: 'Registration successful! Please login.' }
-      });
+     navigate('/login', { 
+    state: { message: 'Registration successful! Please login.' }
+    });
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.');
     } finally {
