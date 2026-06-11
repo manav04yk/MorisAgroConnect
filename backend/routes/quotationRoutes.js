@@ -5,17 +5,16 @@ const quotationController = require('../controllers/quotationController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
-router.get(
-  '/',
-  authMiddleware,
-  quotationController.getQuotations
-);
+// Get all quotations (buyer or farmer sees their own)
+router.get('/', authMiddleware, quotationController.getQuotations);
 
-router.patch(
-  '/:id/approve',
-  authMiddleware,
-  roleMiddleware('buyer'),
-  quotationController.approveQuotation
-);
+// Get single quotation by ID
+router.get('/:id', authMiddleware, quotationController.getQuotationById);
+
+// Create quotation (Called by Agent 4 - Procurement Agent)
+router.post('/', authMiddleware, quotationController.createQuotation);
+
+// Approve quotation (Buyer only - then Agent 5 should generate invoice)
+router.patch('/:id/approve', authMiddleware, roleMiddleware('buyer'), quotationController.approveQuotation);
 
 module.exports = router;
