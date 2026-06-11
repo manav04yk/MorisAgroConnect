@@ -65,9 +65,14 @@ function FarmerDashboard() {
   };
 
   const loadFarmerListings = (farmerName) => {
-    const listings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
-    const myListings = listings.filter(l => l.farmer === farmerName);
-    setFarmerListings(myListings);
+    try {
+      const listings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
+      const myListings = listings.filter(l => l.farmer === farmerName);
+      setFarmerListings(myListings);
+    } catch (error) {
+      console.error('Error loading farmer listings:', error);
+      setFarmerListings([]);
+    }
   };
 
   const handleOpenEditModal = (product) => {
@@ -209,7 +214,7 @@ function FarmerDashboard() {
       return;
     }
     
-    // Get existing listings from localStorage
+    // Get existing listings
     const existingListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
     
     const newListing = {
@@ -348,6 +353,7 @@ function FarmerDashboard() {
             <h2 className="text-success">🌾 Farmer Dashboard</h2>
           </div>
           
+          {/* INVENTORY TAB */}
           {activeTab === 'inventory' && (
             <>
               <div className="card mb-4">
@@ -436,6 +442,7 @@ function FarmerDashboard() {
             </>
           )}
 
+          {/* ORDERS TAB */}
           {activeTab === 'orders' && (
             <div className="card">
               <div className="card-header bg-white">
@@ -480,6 +487,7 @@ function FarmerDashboard() {
             </div>
           )}
 
+          {/* REVENUE TAB */}
           {activeTab === 'revenue' && (
             <div className="card">
               <div className="card-header bg-white">
@@ -522,6 +530,7 @@ function FarmerDashboard() {
             </div>
           )}
 
+          {/* SURPLUS FOOD TAB */}
           {activeTab === 'waste' && (
             <div className="card">
               <div className="card-header bg-white">
@@ -569,9 +578,9 @@ function FarmerDashboard() {
                     </thead>
                     <tbody>
                       {farmerListings.length === 0 ? (
-                        <tr>
+                        <td>
                           <td colSpan="6" className="text-center text-muted">No listings yet. Add some surplus food above!</td>
-                        </tr>
+                        </td>
                       ) : (
                         farmerListings.map(listing => (
                           <tr key={listing.id}>
