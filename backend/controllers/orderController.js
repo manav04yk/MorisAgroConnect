@@ -35,7 +35,6 @@ exports.getOrders = async (req, res) => {
     query += ' ORDER BY o.created_at DESC';
 
     const [orders] = await db.query(query, params);
-
     res.json(orders);
   } catch (error) {
     console.error('Get orders error:', error);
@@ -60,6 +59,7 @@ exports.getOrderById = async (req, res) => {
         farmer.name AS farmer_name,
         dr.product_name,
         dr.quantity_kg,
+        dr.required_date,
         q.total_amount,
         o.status,
         o.created_at,
