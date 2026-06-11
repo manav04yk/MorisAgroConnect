@@ -1,23 +1,13 @@
-// src/pages/DeliveryDashboard.jsx
-import React, { useEffect, useState } from 'react';
+// src/pages/Marketplace.jsx
+import React, { useState, useEffect } from 'react';
 import FloatingChat from '../components/FloatingChat';
 import Toast from '../components/Toast';
+import api from '../utils/api';
 
-import {
-  getDeliveries,
-  updateDeliveryStatus as updateDeliveryStatusApi
-} from '../utils/api';
-
-function DeliveryDashboard() {
-  const [user, setUser] = useState(null);
-  const [deliveries, setDeliveries] = useState([]);
-  const [driverStats, setDriverStats] = useState({
-    completedToday: 0,
-    totalDeliveries: 0,
-    totalDistance: 0,
-    rating: 5.0
-  });
+function Marketplace() {
+  const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const [toasts, setToasts] = useState([]);
 
   const addToast = (message, type = 'success') => {
@@ -31,111 +21,96 @@ function DeliveryDashboard() {
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
-
     if (userStr) {
       setUser(JSON.parse(userStr));
     }
-
-    fetchDeliveries();
-
-    const interval = setInterval(fetchDeliveries, 10000);
-    return () => clearInterval(interval);
+    fetchListings();
   }, []);
 
-  const fetchDeliveries = async () => {
+  const fetchListings = async () => {
     try {
-      setLoading(true);
+      const farmerListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
+      
+      const mockListings = [
+        {
+          id: 1,
+          farmer: "Jean-Pierre Farm",
+          farmerLocation: "Riviere du Rempart",
+          product: "Tomatoes",
+          quantity: 20,
+          originalPrice: 38,
+          discountedPrice: 25,
+          expiryDate: "2024-12-20",
+          status: "available",
+          reason: "Surplus harvest"
+        },
+        {
+          id: 2,
+          farmer: "Green Farms MU",
+          farmerLocation: "Curepipe",
+          product: "Lettuce",
+          quantity: 15,
+          originalPrice: 25,
+          discountedPrice: 15,
+          expiryDate: "2024-12-18",
+          status: "available",
+          reason: "Near expiry"
+        }
+      ];
+      
+      setListings([...mockListings, ...farmerListings]);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching marketplace listings:', error);
+      setLoading(false);
+    }
+  };
 
-      const response = await getDeliveries();
-
-      const formattedDeliveries = response.data.map(delivery => ({
-        id: delivery.id,
-        orderId: delivery.order_id,
-        buyer: delivery.buyer_name,
-        buyerLocation: 'Buyer location',
-        farmer: delivery.farmer_name,
-        farmerLocation: 'Farmer location',
-        product: delivery.product_name,
-        quantity: Number(delivery.quantity_kg),
-        status: delivery.status,
-        eta: delivery.eta || 'N/A',
-        distance: 'N/A',
-        route: delivery.route || 'Route not available',
-        orderStatus: delivery.order_status
-      }));
-
-      setDeliveries(formattedDeliveries);
-
-      const completed = formattedDeliveries.filter(d => d.status === 'delivered').length;
-
-      setDriverStats({
-        completedToday: completed,
-        totalDeliveries: formattedDeliveries.length,
-        totalDistance: 0,
-        rating: 5.0
+  const handleReserve = async (listing) => {
+    if (!user || user.role !== 'buyer') {
+      addToast('Please login as a buyer to reserve food', 'error');
+      return;
+    }
+    
+    try {
+      const userResponse = await api.get('/users/search', { 
+        params: { name: listing.farmer } 
       });
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Delivery fetch error:', error);
-      addToast(error.response?.data?.error || 'Failed to load deliveries', 'error');
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateStatus = async (deliveryId, status) => {
-    try {
-      await updateDeliveryStatusApi(deliveryId, status);
-
-      addToast(`Delivery marked as ${status}`, 'success');
-      fetchDeliveries();
-    } catch (error) {
-      console.error('Update delivery error:', error);
-      addToast(error.response?.data?.error || 'Failed to update delivery', 'error');
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    const badges = {
-      assigned: 'bg-warning text-dark',
-      picked_up: 'bg-primary',
-      delivered: 'bg-success'
-    };
-
-    return badges[status] || 'bg-secondary';
-  };
-
-  const getStatusLabel = (status) => {
-    const labels = {
-      assigned: 'Assigned',
-      picked_up: 'Picked Up',
-      delivered: 'Delivered'
-    };
-
-    return labels[status] || status;
-  };
-
-  const getNextAction = (status) => {
-    const actions = {
-      assigned: {
-        text: 'Mark as Picked Up',
-        nextStatus: 'picked_up',
-        color: 'btn-primary'
-      },
-      picked_up: {
-        text: 'Mark as Delivered',
-        nextStatus: 'delivered',
-        color: 'btn-success'
-      },
-      delivered: {
-        text: 'Completed',
-        nextStatus: null,
-        color: 'btn-secondary',
-        disabled: true
+      
+      if (!userResponse.data || !userResponse.data.id) {
+        addToast('Farmer not found', 'error');
+        return;
       }
-    };
+      
+      const farmerId = userResponse.data.id;
+      
+      await api.post('/inventory/reduce', {
+        farmer_id: farmerId,
+        product_name: listing.product,
+        quantity_kg: listing.quantity
+      });
+      
+      const farmerListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
+      const updatedListings = farmerListings.filter(l => l.id !== listing.id);
+      localStorage.setItem('marketplaceListings', JSON.stringify(updatedListings));
+      
+      setListings(listings.filter(l => l.id !== listing.id));
+      
+      addToast(`✅ Reserved ${listing.quantity}kg of ${listing.product}! Inventory updated.`, 'success');
+    } catch (error) {
+      console.error('Error reserving:', error);
+      addToast(error.response?.data?.error || 'Failed to reserve. Please try again.', 'error');
+    }
+  };
 
-    return actions[status] || actions.assigned;
+  const getExpiryBadge = (expiryDate) => {
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+    
+    if (daysLeft <= 1) return <span className="badge bg-danger">Expires Tomorrow!</span>;
+    if (daysLeft <= 3) return <span className="badge bg-warning">Expires in {daysLeft} days</span>;
+    return <span className="badge bg-info">Fresh</span>;
   };
 
   if (loading) {
@@ -149,23 +124,18 @@ function DeliveryDashboard() {
   }
 
   return (
-    <div className="container-fluid mt-3 mb-5">
+    <div className="container mt-4 mb-5">
       {toasts.map(toast => (
-        <Toast
-          key={toast.id}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => removeToast(toast.id)}
-        />
+        <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />
       ))}
 
       <div className="row mb-4">
         <div className="col-12">
-          <div className="card bg-success text-white">
+          <div className="card bg-warning bg-opacity-25 border-warning">
             <div className="card-body">
-              <h2 className="fw-bold mb-1">🚚 Delivery Dashboard</h2>
-              <p className="mb-0">
-                Welcome back, {user?.name || 'Driver'}.
+              <h2 className="text-center mb-2">♻️ Food Waste Marketplace</h2>
+              <p className="text-center mb-0">
+                Save surplus food from going to waste! Buy at discounted prices and help reduce food waste in Mauritius.
               </p>
             </div>
           </div>
@@ -173,124 +143,121 @@ function DeliveryDashboard() {
       </div>
 
       <div className="row mb-4">
-        <div className="col-md-3 col-6 mb-3">
-          <div className="card text-center">
+        <div className="col-md-4 mb-3">
+          <div className="card bg-success text-white text-center">
             <div className="card-body">
-              <h6>Completed Today</h6>
-              <h3 className="text-success">{driverStats.completedToday}</h3>
+              <div className="display-4">{listings.length}</div>
+              <div>Available Listings</div>
             </div>
           </div>
         </div>
-
-        <div className="col-md-3 col-6 mb-3">
-          <div className="card text-center">
+        <div className="col-md-4 mb-3">
+          <div className="card bg-info text-white text-center">
             <div className="card-body">
-              <h6>Total Assigned</h6>
-              <h3 className="text-primary">{driverStats.totalDeliveries}</h3>
+              <div className="display-4">
+                {listings.reduce((sum, l) => sum + l.quantity, 0)} kg
+              </div>
+              <div>Food Saved from Waste</div>
             </div>
           </div>
         </div>
-
-        <div className="col-md-3 col-6 mb-3">
-          <div className="card text-center">
+        <div className="col-md-4 mb-3">
+          <div className="card bg-primary text-white text-center">
             <div className="card-body">
-              <h6>Total Distance</h6>
-              <h3 className="text-info">{driverStats.totalDistance} km</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-md-3 col-6 mb-3">
-          <div className="card text-center">
-            <div className="card-body">
-              <h6>Rating</h6>
-              <h3 className="text-warning">{driverStats.rating} ⭐</h3>
+              <div className="display-4">
+                Rs {listings.reduce((sum, l) => sum + (l.originalPrice - l.discountedPrice) * l.quantity, 0)}
+              </div>
+              <div>Total Savings</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header bg-white">
-          <h5 className="mb-0">📦 Assigned Deliveries</h5>
-        </div>
-
-        <div className="card-body">
-          {deliveries.length === 0 ? (
-            <div className="text-center text-muted py-5">
-              <h5>No deliveries assigned yet.</h5>
-              <p>Assigned deliveries will appear here.</p>
-            </div>
-          ) : (
-            <div className="row">
-              {deliveries.map(delivery => {
-                const nextAction = getNextAction(delivery.status);
-
-                return (
-                  <div className="col-lg-6 col-12 mb-4" key={delivery.id}>
-                    <div className="card h-100 shadow-sm">
-                      <div className="card-header bg-white d-flex justify-content-between align-items-center">
-                        <h6 className="mb-0">Delivery #{delivery.id}</h6>
-                        <span className={`badge ${getStatusBadge(delivery.status)}`}>
-                          {getStatusLabel(delivery.status)}
-                        </span>
-                      </div>
-
-                      <div className="card-body">
-                        <p className="mb-2">
-                          <strong>Order:</strong> #{delivery.orderId}
-                        </p>
-
-                        <p className="mb-2">
-                          <strong>Product:</strong> {delivery.product}
-                        </p>
-
-                        <p className="mb-2">
-                          <strong>Quantity:</strong> {delivery.quantity} kg
-                        </p>
-
-                        <p className="mb-2">
-                          <strong>From Farmer:</strong> {delivery.farmer}
-                        </p>
-
-                        <p className="mb-2">
-                          <strong>To Buyer:</strong> {delivery.buyer}
-                        </p>
-
-                        <p className="mb-2">
-                          <strong>Route:</strong> {delivery.route}
-                        </p>
-
-                        <p className="mb-2">
-                          <strong>ETA:</strong> {delivery.eta}
-                        </p>
-
-                        <p className="mb-2">
-                          <strong>Order Status:</strong> {delivery.orderStatus}
-                        </p>
-                      </div>
-
-                      <div className="card-footer bg-white">
-                        <button
-                          className={`btn ${nextAction.color} w-100`}
-                          disabled={nextAction.disabled}
-                          onClick={() => handleUpdateStatus(delivery.id, nextAction.nextStatus)}
-                        >
-                          {nextAction.text}
-                        </button>
-                      </div>
+      <div className="row">
+        {listings.length === 0 ? (
+          <div className="col-12 text-center py-5">
+            <div className="display-1">🌱</div>
+            <h4>No listings available</h4>
+            <p className="text-muted">Farmers haven't listed any surplus food yet. Check back later!</p>
+          </div>
+        ) : (
+          listings.map(listing => (
+            <div className="col-md-6 col-lg-4 mb-4" key={listing.id}>
+              <div className="card h-100 shadow-sm">
+                <div className="card-header bg-white">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <h5 className="mb-0">{listing.product}</h5>
+                    {getExpiryBadge(listing.expiryDate)}
+                  </div>
+                </div>
+                <div className="card-body">
+                  <div className="mb-3">
+                    <div className="text-muted small">From</div>
+                    <strong>{listing.farmer}</strong>
+                    <br />
+                    <small className="text-muted">📍 {listing.farmerLocation}</small>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <div className="text-muted small">Quantity Available</div>
+                    <h4>{listing.quantity} kg</h4>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <div className="text-muted small">Price</div>
+                    <div>
+                      <span className="text-decoration-line-through text-muted">
+                        Rs {listing.originalPrice}/kg
+                      </span>
+                      <span className="fs-4 text-success fw-bold ms-2">
+                        Rs {listing.discountedPrice}/kg
+                      </span>
                     </div>
                   </div>
-                );
-              })}
+                  
+                  <div className="mb-3">
+                    <div className="text-muted small">Reason for Discount</div>
+                    <span className="badge bg-warning text-dark">{listing.reason}</span>
+                  </div>
+                  
+                  <div className="alert alert-success alert-sm mb-0">
+                    💰 Save Rs {(listing.originalPrice - listing.discountedPrice) * listing.quantity} on this purchase!
+                  </div>
+                </div>
+                <div className="card-footer bg-white">
+                  <button 
+                    className="btn btn-success w-100"
+                    onClick={() => handleReserve(listing)}
+                    disabled={user?.role !== 'buyer'}
+                  >
+                    {user?.role === 'buyer' ? '🛒 Reserve Now' : '🔒 Login as Buyer to Reserve'}
+                  </button>
+                </div>
+              </div>
             </div>
-          )}
+          ))
+        )}
+      </div>
+
+      <div className="row mt-4">
+        <div className="col-12">
+          <div className="card bg-light">
+            <div className="card-body">
+              <h6 className="mb-2">💡 How It Works</h6>
+              <ul className="small mb-0">
+                <li>Farmers list surplus or near-expiry produce at discounted prices</li>
+                <li>Hotels and restaurants can reserve food at up to 40% off</li>
+                <li>When you reserve, the farmer's inventory is automatically reduced</li>
+                <li>Every kg saved = less food waste + more profit for farmers + savings for buyers</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
 
-      <FloatingChat currentPage="Delivery Dashboard" userRole="driver" />
+      <FloatingChat currentPage="Marketplace" userRole={user?.role || null} />
     </div>
   );
 }
 
-export default DeliveryDashboard;
+export default Marketplace;
