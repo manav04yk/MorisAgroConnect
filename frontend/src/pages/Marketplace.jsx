@@ -24,17 +24,22 @@ function Marketplace() {
     if (userStr) {
       setUser(JSON.parse(userStr));
     }
-    fetchListings();
+    loadListings();
   }, []);
 
-  const fetchListings = async () => {
+  const loadListings = () => {
     try {
-      // ONLY get farmer listings from localStorage - NO mock data
-      const farmerListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
-      setListings(farmerListings);
+      const savedListings = localStorage.getItem('marketplaceListings');
+      if (savedListings) {
+        const parsedListings = JSON.parse(savedListings);
+        setListings(parsedListings);
+        console.log('Loaded listings:', parsedListings.length);
+      } else {
+        setListings([]);
+      }
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching marketplace listings:', error);
+      console.error('Error loading listings:', error);
       setListings([]);
       setLoading(false);
     }
@@ -67,12 +72,12 @@ function Marketplace() {
       });
       
       // Remove from localStorage
-      const farmerListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
-      const updatedListings = farmerListings.filter(l => l.id !== listing.id);
+      const currentListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
+      const updatedListings = currentListings.filter(l => l.id !== listing.id);
       localStorage.setItem('marketplaceListings', JSON.stringify(updatedListings));
       
-      // Update displayed listings
-      setListings(listings.filter(l => l.id !== listing.id));
+      // Update state
+      setListings(updatedListings);
       
       addToast(`✅ Reserved ${listing.quantity}kg of ${listing.product}! Inventory updated.`, 'success');
     } catch (error) {
