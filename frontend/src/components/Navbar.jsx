@@ -6,7 +6,6 @@ function Navbar() {
   const [user, setUser] = useState(null);
   const location = useLocation();
 
-  // Check for user on mount and when location changes
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
@@ -17,7 +16,10 @@ function Navbar() {
   }, [location]);
 
   const handleLogout = () => {
-    localStorage.clear();
+    // Only clear user data, NOT marketplace listings
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    // Keep marketplaceListings - DO NOT clear it
     setUser(null);
     window.location.href = '/';
   };
@@ -59,7 +61,6 @@ function Navbar() {
               <Link className="nav-link" to="/">Home</Link>
             </li>
             {!user ? (
-              // Not logged in - show Login and Register
               <>
                 <li className="nav-item">
                   <Link className="nav-link" to="/login">Login</Link>
@@ -69,7 +70,6 @@ function Navbar() {
                 </li>
               </>
             ) : (
-              // Logged in - show Dashboard and Logout
               <>
                 <li className="nav-item">
                   <Link className="nav-link" to={getDashboardLink()}>
