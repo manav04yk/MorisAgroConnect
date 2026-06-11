@@ -12,26 +12,12 @@ function Navbar() {
     window.location.href = '/';
   };
 
-  // Switch role for testing
-  const switchRole = (role) => {
-    const roleData = {
-      buyer: { id: 1, name: 'Le Meridien Hotel', role: 'buyer', email: 'buyer@demo.mu' },
-      farmer: { id: 2, name: 'Jean-Pierre Farm', role: 'farmer', email: 'farmer@demo.mu' },
-      driver: { id: 3, name: 'Raj Delivery', role: 'driver', email: 'driver@demo.mu' },
-      admin: { id: 4, name: 'Admin User', role: 'admin', email: 'admin@demo.mu' }
-    };
-    
-    localStorage.setItem('user', JSON.stringify(roleData[role]));
-    setUser(roleData[role]);
-    window.location.href = `/${role}-dashboard`;
-  };
-
   const getDashboardLink = () => {
     if (!user) return '/';
     switch (user.role) {
       case 'buyer': return '/buyer-dashboard';
       case 'farmer': return '/farmer-dashboard';
-      case 'driver': return '/delivery-dashboard';
+      case 'driver': return '/driver-dashboard';
       case 'admin': return '/admin-dashboard';
       default: return '/';
     }
@@ -78,27 +64,9 @@ function Navbar() {
                     📊 {getDashboardName()}
                   </Link>
                 </li>
-                
-                {/* Role Switcher - FOR TESTING ONLY */}
-                <li className="nav-item dropdown">
-                  <button 
-                    className="nav-link dropdown-toggle btn btn-link text-white" 
-                    data-bs-toggle="dropdown"
-                    style={{ textDecoration: 'none' }}
-                  >
-                    🔄 Switch Role
-                  </button>
-                  <ul className="dropdown-menu">
-                    <li><button className="dropdown-item" onClick={() => switchRole('buyer')}>Buyer (Hotel)</button></li>
-                    <li><button className="dropdown-item" onClick={() => switchRole('farmer')}>Farmer</button></li>
-                    <li><button className="dropdown-item" onClick={() => switchRole('driver')}>Driver</button></li>
-                    <li><button className="dropdown-item" onClick={() => switchRole('admin')}>Admin</button></li>
-                  </ul>
-                </li>
-                
                 <li className="nav-item">
                   <button className="btn btn-outline-light btn-sm ms-2" onClick={handleLogout}>
-                    Logout
+                    🚪 Logout
                   </button>
                 </li>
               </>
