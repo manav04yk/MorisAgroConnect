@@ -9,6 +9,8 @@ const deliveryRoutes = require('./routes/deliveryRoutes');
 const wasteRoutes = require('./routes/wasteRoutes');
 const sustainabilityRoutes = require('./routes/sustainabilityRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
+const userRoutes = require('./routes/userRoutes');  // ← ADD THIS LINE
+
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -19,6 +21,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
 app.use('/api/auth', authRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/inventory', inventoryRoutes);
@@ -30,6 +33,8 @@ app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/waste', wasteRoutes);
 app.use('/api/sustainability', sustainabilityRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/users', userRoutes);  // ← ADD THIS LINE
+
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({
@@ -58,7 +63,7 @@ app.get('/api/db-test', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
