@@ -29,20 +29,21 @@ function Marketplace() {
 
   const loadListings = () => {
     try {
-      const savedListings = localStorage.getItem('marketplaceListings');
-      if (savedListings) {
-        const parsedListings = JSON.parse(savedListings);
-        setListings(parsedListings);
-        console.log('Loaded listings:', parsedListings.length);
+      const saved = localStorage.getItem('marketplaceListings');
+      console.log('Loading listings from localStorage:', saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setListings(parsed);
+        console.log('Listings loaded:', parsed.length);
       } else {
         setListings([]);
+        console.log('No listings found');
       }
-      setLoading(false);
-    } catch (error) {
-      console.error('Error loading listings:', error);
+    } catch (err) {
+      console.error('Error loading listings:', err);
       setListings([]);
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const handleReserve = async (listing) => {
@@ -52,76 +53,47 @@ function Marketplace() {
     }
     
     try {
-      // Find the farmer ID by name
       const userResponse = await api.get('/users/search', { 
         params: { name: listing.farmer } 
       });
       
-      if (!userResponse.data || !userResponse.data.id) {
-        addToast('Farmer not found', 'error');
-        return;
+      if (userResponse.data?.id) {
+        await api.post('/inventory/reduce', {
+          farmer_id: userResponse.data.id,
+          product_name: listing.product,
+          quantity_kg: listing.quantity
+        });
       }
       
-      const farmerId = userResponse.data.id;
+      const current = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
+      const updated = current.filter(l => l.id !== listing.id);
+      localStorage.setItem('marketplaceListings', JSON.stringify(updated));
+      setListings(updated);
       
-      // Reduce the farmer's inventory
-      await api.post('/inventory/reduce', {
-        farmer_id: farmerId,
-        product_name: listing.product,
-        quantity_kg: listing.quantity
-      });
-      
-      // Remove from localStorage
-      const currentListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
-      const updatedListings = currentListings.filter(l => l.id !== listing.id);
-      localStorage.setItem('marketplaceListings', JSON.stringify(updatedListings));
-      
-      // Update state
-      setListings(updatedListings);
-      
-      addToast(`✅ Reserved ${listing.quantity}kg of ${listing.product}! Inventory updated.`, 'success');
-    } catch (error) {
-      console.error('Error reserving:', error);
-      addToast(error.response?.data?.error || 'Failed to reserve. Please try again.', 'error');
+      addToast(`✅ Reserved ${listing.quantity}kg of ${listing.product}!`, 'success');
+    } catch (err) {
+      console.error('Reservation error:', err);
+      addToast('Failed to reserve', 'error');
     }
   };
 
   const getExpiryBadge = (expiryDate) => {
-    const today = new Date();
-    const expiry = new Date(expiryDate);
-    const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-    
+    const daysLeft = Math.ceil((new Date(expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
     if (daysLeft <= 1) return <span className="badge bg-danger">Expires Tomorrow!</span>;
     if (daysLeft <= 3) return <span className="badge bg-warning">Expires in {daysLeft} days</span>;
     return <span className="badge bg-info">Fresh</span>;
   };
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
-        <div className="spinner-border text-success" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="text-center mt-5"><div className="spinner-border text-success"></div></div>;
 
   return (
     <div className="container mt-4 mb-5">
-      {toasts.map(toast => (
-        <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />
-      ))}
+      {toasts.map(t => <Toast key={t.id} message={t.message} type={t.type} onClose={() => removeToast(t.id)} />)}
 
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="card bg-warning bg-opacity-25 border-warning">
-            <div className="card-body">
-              <h2 className="text-center mb-2">♻️ Food Waste Marketplace</h2>
-              <p className="text-center mb-0">
-                Save surplus food from going to waste! Buy at discounted prices and help reduce food waste in Mauritius.
-              </p>
-            </div>
-          </div>
+      <div className="card bg-warning bg-opacity-25 border-warning mb-4">
+        <div className="card-body text-center">
+          <h2>♻️ Food Waste Marketplace</h2>
+          <p className="mb-0">Save surplus food from going to waste!</p>
         </div>
       </div>
 
@@ -137,19 +109,15 @@ function Marketplace() {
         <div className="col-md-4 mb-3">
           <div className="card bg-info text-white text-center">
             <div className="card-body">
-              <div className="display-4">
-                {listings.reduce((sum, l) => sum + l.quantity, 0)} kg
-              </div>
-              <div>Food Saved from Waste</div>
+              <div className="display-4">{listings.reduce((s, l) => s + l.quantity, 0)} kg</div>
+              <div>Food Saved</div>
             </div>
           </div>
         </div>
         <div className="col-md-4 mb-3">
           <div className="card bg-primary text-white text-center">
             <div className="card-body">
-              <div className="display-4">
-                Rs {listings.reduce((sum, l) => sum + (l.originalPrice - l.discountedPrice) * l.quantity, 0)}
-              </div>
+              <div className="display-4">Rs {listings.reduce((s, l) => s + (l.originalPrice - l.discountedPrice) * l.quantity, 0)}</div>
               <div>Total Savings</div>
             </div>
           </div>
@@ -161,59 +129,26 @@ function Marketplace() {
           <div className="col-12 text-center py-5">
             <div className="display-1">🌱</div>
             <h4>No listings available</h4>
-            <p className="text-muted">Farmers haven't listed any surplus food yet. Check back later!</p>
+            <p>Farmers haven't listed any surplus food yet.</p>
           </div>
         ) : (
           listings.map(listing => (
             <div className="col-md-6 col-lg-4 mb-4" key={listing.id}>
               <div className="card h-100 shadow-sm">
-                <div className="card-header bg-white">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <h5 className="mb-0">{listing.product}</h5>
-                    {getExpiryBadge(listing.expiryDate)}
-                  </div>
+                <div className="card-header bg-white d-flex justify-content-between">
+                  <h5 className="mb-0">{listing.product}</h5>
+                  {getExpiryBadge(listing.expiryDate)}
                 </div>
                 <div className="card-body">
-                  <div className="mb-3">
-                    <div className="text-muted small">From</div>
-                    <strong>{listing.farmer}</strong>
-                    <br />
-                    <small className="text-muted">📍 {listing.farmerLocation}</small>
-                  </div>
-                  
-                  <div className="mb-3">
-                    <div className="text-muted small">Quantity Available</div>
-                    <h4>{listing.quantity} kg</h4>
-                  </div>
-                  
-                  <div className="mb-3">
-                    <div className="text-muted small">Price</div>
-                    <div>
-                      <span className="text-decoration-line-through text-muted">
-                        Rs {listing.originalPrice}/kg
-                      </span>
-                      <span className="fs-4 text-success fw-bold ms-2">
-                        Rs {listing.discountedPrice}/kg
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="mb-3">
-                    <div className="text-muted small">Reason for Discount</div>
-                    <span className="badge bg-warning text-dark">{listing.reason}</span>
-                  </div>
-                  
-                  <div className="alert alert-success alert-sm mb-0">
-                    💰 Save Rs {(listing.originalPrice - listing.discountedPrice) * listing.quantity} on this purchase!
-                  </div>
+                  <p><strong>From:</strong> {listing.farmer}<br /><small>📍 {listing.farmerLocation}</small></p>
+                  <h4>{listing.quantity} kg</h4>
+                  <p><span className="text-decoration-line-through">Rs {listing.originalPrice}/kg</span> <span className="fs-4 text-success fw-bold">Rs {listing.discountedPrice}/kg</span></p>
+                  <p><span className="badge bg-warning text-dark">{listing.reason}</span></p>
+                  <div className="alert alert-success py-2">💰 Save Rs {(listing.originalPrice - listing.discountedPrice) * listing.quantity}</div>
                 </div>
-                <div className="card-footer bg-white">
-                  <button 
-                    className="btn btn-success w-100"
-                    onClick={() => handleReserve(listing)}
-                    disabled={user?.role !== 'buyer'}
-                  >
-                    {user?.role === 'buyer' ? '🛒 Reserve Now' : '🔒 Login as Buyer to Reserve'}
+                <div className="card-footer">
+                  <button className="btn btn-success w-100" onClick={() => handleReserve(listing)} disabled={user?.role !== 'buyer'}>
+                    {user?.role === 'buyer' ? '🛒 Reserve Now' : '🔒 Login as Buyer'}
                   </button>
                 </div>
               </div>
@@ -222,19 +157,14 @@ function Marketplace() {
         )}
       </div>
 
-      <div className="row mt-4">
-        <div className="col-12">
-          <div className="card bg-light">
-            <div className="card-body">
-              <h6 className="mb-2">💡 How It Works</h6>
-              <ul className="small mb-0">
-                <li>Farmers list surplus or near-expiry produce at discounted prices</li>
-                <li>Hotels and restaurants can reserve food at up to 40% off</li>
-                <li>When you reserve, the farmer's inventory is automatically reduced</li>
-                <li>Every kg saved = less food waste + more profit for farmers + savings for buyers</li>
-              </ul>
-            </div>
-          </div>
+      <div className="card bg-light mt-4">
+        <div className="card-body">
+          <h6>💡 How It Works</h6>
+          <ul className="small mb-0">
+            <li>Farmers list surplus produce at discounted prices</li>
+            <li>Buyers reserve food at up to 40% off</li>
+            <li>Farmer's inventory is automatically reduced</li>
+          </ul>
         </div>
       </div>
 
