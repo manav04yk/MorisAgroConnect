@@ -1,20 +1,9 @@
+// src/components/ProtectedRoute.jsx - TEMPORARY BYPASS VERSION
 import React from 'react';
-import { Navigate } from 'react-router-dom';
 
-function ProtectedRoute({ children, allowedRoles }) {
-  const token = localStorage.getItem('token');
-  const userStr = localStorage.getItem('user');
-
-  if (!token || !userStr) {
-    return <Navigate to="/login" replace />;
-  }
-
-  const user = JSON.parse(userStr);
-
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
-  }
-
+function ProtectedRoute({ children }) {
+  // TEMPORARILY BYPASSING AUTH FOR TESTING
+  console.log('ProtectedRoute: Bypassing authentication for testing');
   return children;
 }
 
