@@ -209,7 +209,9 @@ function FarmerDashboard() {
       return;
     }
     
+    // Get existing listings from localStorage
     const existingListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
+    
     const newListing = {
       id: Date.now(),
       farmer: user?.name || 'Farmer',
@@ -227,8 +229,11 @@ function FarmerDashboard() {
     localStorage.setItem('marketplaceListings', JSON.stringify(existingListings));
     
     addToast(`✅ Listed ${quantity}kg of ${selectedProduct.name} on Marketplace at Rs ${discountPrice}/kg!`, 'success');
+    
+    // Refresh the farmer's own listings display
     loadFarmerListings(user?.name);
     
+    // Clear form
     document.getElementById('surplusQuantity').value = '';
     document.getElementById('surplusDiscount').value = '';
     productSelect.value = '';
@@ -343,7 +348,6 @@ function FarmerDashboard() {
             <h2 className="text-success">🌾 Farmer Dashboard</h2>
           </div>
           
-          {/* INVENTORY TAB */}
           {activeTab === 'inventory' && (
             <>
               <div className="card mb-4">
@@ -432,7 +436,6 @@ function FarmerDashboard() {
             </>
           )}
 
-          {/* ORDERS TAB */}
           {activeTab === 'orders' && (
             <div className="card">
               <div className="card-header bg-white">
@@ -477,7 +480,6 @@ function FarmerDashboard() {
             </div>
           )}
 
-          {/* REVENUE TAB */}
           {activeTab === 'revenue' && (
             <div className="card">
               <div className="card-header bg-white">
@@ -520,7 +522,6 @@ function FarmerDashboard() {
             </div>
           )}
 
-          {/* SURPLUS FOOD TAB */}
           {activeTab === 'waste' && (
             <div className="card">
               <div className="card-header bg-white">
