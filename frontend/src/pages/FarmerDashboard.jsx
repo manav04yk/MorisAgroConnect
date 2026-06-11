@@ -197,6 +197,7 @@ function FarmerDashboard() {
     const quantity = document.getElementById('surplusQuantity')?.value;
     const discountPrice = document.getElementById('surplusDiscount')?.value;
     
+    // Check if all fields are filled
     if (!productSelect?.value || !quantity || !discountPrice) {
       addToast('Please fill in all fields', 'error');
       return;
@@ -209,11 +210,42 @@ function FarmerDashboard() {
       return;
     }
     
-    if (parseInt(quantity) > selectedProduct.quantity_kg) {
+    // Check if enough quantity in inventory
+    const quantityNum = parseInt(quantity);
+    if (quantityNum > selectedProduct.quantity_kg) {
       addToast(`Not enough ${selectedProduct.name}. Available: ${selectedProduct.quantity_kg} kg`, 'error');
       return;
     }
     
+    // Validate quantity is positive
+    if (quantityNum <= 0) {
+      addToast('Quantity must be greater than 0', 'error');
+      return;
+    }
+    
+    // Validate discounted price is positive
+    const discountPriceNum = parseInt(discountPrice);
+    if (discountPriceNum <= 0) {
+      addToast('Discounted price must be greater than 0', 'error');
+      return;
+    }
+    
+    // Validate discounted price is less than original price
+    const originalPriceNum = selectedProduct.price_per_kg;
+    if (discountPriceNum >= originalPriceNum) {
+      addToast(`Discounted price (Rs ${discountPriceNum}) must be less than original price (Rs ${originalPriceNum}/kg)`, 'error');
+      return;
+    }
+    
+    // Calculate discount percentage
+    const discountPercent = ((originalPriceNum - discountPriceNum) / originalPriceNum) * 100;
+    
+    // Warning for small discount
+    if (discountPercent < 10) {
+      addToast(`⚠️ Discount is only ${discountPercent.toFixed(0)}%. Consider a higher discount for surplus food.`, 'warning');
+    }
+    
+    // Get existing listings
     const existingListings = JSON.parse(localStorage.getItem('marketplaceListings') || '[]');
     
     const newListing = {
@@ -221,9 +253,9 @@ function FarmerDashboard() {
       farmer: user?.name || 'Farmer',
       farmerLocation: user?.location || 'Mauritius',
       product: selectedProduct.name,
-      quantity: parseInt(quantity),
-      originalPrice: selectedProduct.price_per_kg,
-      discountedPrice: parseInt(discountPrice),
+      quantity: quantityNum,
+      originalPrice: originalPriceNum,
+      discountedPrice: discountPriceNum,
       expiryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       status: 'available',
       reason: 'Farmer surplus'
@@ -232,10 +264,12 @@ function FarmerDashboard() {
     existingListings.push(newListing);
     localStorage.setItem('marketplaceListings', JSON.stringify(existingListings));
     
-    addToast(`✅ Listed ${quantity}kg of ${selectedProduct.name} on Marketplace at Rs ${discountPrice}/kg!`, 'success');
+    addToast(`✅ Listed ${quantityNum}kg of ${selectedProduct.name} at Rs ${discountPriceNum}/kg (${discountPercent.toFixed(0)}% off)!`, 'success');
     
+    // Refresh the farmer's own listings display
     loadFarmerListings(user?.name);
     
+    // Clear form
     document.getElementById('surplusQuantity').value = '';
     document.getElementById('surplusDiscount').value = '';
     productSelect.value = '';
