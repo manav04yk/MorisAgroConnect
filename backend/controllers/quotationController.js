@@ -80,7 +80,6 @@ exports.getQuotationById = async (req, res) => {
 
     const quotation = quotations[0];
 
-    // Check authorization
     if (req.user.role === 'buyer' && quotation.buyer_id !== req.user.id) {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -98,7 +97,7 @@ exports.getQuotationById = async (req, res) => {
   }
 };
 
-// Create quotation (Called by Agent 4 - Procurement Agent)
+// Create quotation
 exports.createQuotation = async (req, res) => {
   try {
     const { request_id, farmer_id, buyer_id, total_amount } = req.body;
@@ -109,7 +108,6 @@ exports.createQuotation = async (req, res) => {
       });
     }
 
-    // Verify request exists
     const [requests] = await db.query(
       'SELECT * FROM demand_requests WHERE id = ?',
       [request_id]
@@ -119,7 +117,6 @@ exports.createQuotation = async (req, res) => {
       return res.status(404).json({ error: 'Demand request not found' });
     }
 
-    // Verify farmer exists
     const [farmers] = await db.query(
       'SELECT * FROM users WHERE id = ? AND role = ?',
       [farmer_id, 'farmer']
@@ -129,7 +126,6 @@ exports.createQuotation = async (req, res) => {
       return res.status(404).json({ error: 'Farmer not found' });
     }
 
-    // Verify buyer exists
     const [buyers] = await db.query(
       'SELECT * FROM users WHERE id = ? AND role = ?',
       [buyer_id, 'buyer']
@@ -140,12 +136,12 @@ exports.createQuotation = async (req, res) => {
     }
 
     const [result] = await db.query(
-      `INSERT INTO quotations (request_id, farmer_id, buyer_id, total_amount, status)
+      `INSERT INTO quotations 
+       (request_id, farmer_id, buyer_id, total_amount, status)
        VALUES (?, ?, ?, ?, ?)`,
       [request_id, farmer_id, buyer_id, total_amount, 'pending']
     );
 
-    // Update demand request status
     await db.query(
       'UPDATE demand_requests SET status = ? WHERE id = ?',
       ['quoted', request_id]
@@ -186,7 +182,7 @@ exports.createQuotation = async (req, res) => {
   }
 };
 
-// Approve quotation (Called by Buyer, then Agent 5 should generate invoice)
+// Approve quotation, then create order and invoice
 exports.approveQuotation = async (req, res) => {
   const connection = await db.getConnection();
 
@@ -213,26 +209,77 @@ exports.approveQuotation = async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    if (quotation.status === 'approved') {
+    if (quotation.status === 'rejected') {
       await connection.rollback();
-      return res.status(400).json({ error: 'Quotation already approved' });
+      return res.status(400).json({
+        error: 'Rejected quotation cannot be approved'
+      });
     }
 
-    // Only update status - NO automatic order/invoice/delivery creation
-    await connection.query(
-      'UPDATE quotations SET status = ? WHERE id = ?',
-      ['approved', quotationId]
+    if (quotation.status === 'approved') {
+      const [existingOrders] = await connection.query(
+        'SELECT * FROM orders WHERE quotation_id = ?',
+        [quotationId]
+      );
+
+      if (existingOrders.length > 0) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: 'Quotation already approved'
+        });
+      }
+
+      // If quotation is approved but order is missing, continue and repair it.
+    } else {
+      await connection.query(
+        'UPDATE quotations SET status = ? WHERE id = ?',
+        ['approved', quotationId]
+      );
+    }
+
+    const [orderResult] = await connection.query(
+      `INSERT INTO orders 
+       (quotation_id, buyer_id, farmer_id, status)
+       VALUES (?, ?, ?, ?)`,
+      [
+        quotation.id,
+        quotation.buyer_id,
+        quotation.farmer_id,
+        'confirmed'
+      ]
+    );
+
+    const orderId = orderResult.insertId;
+
+    const [invoiceResult] = await connection.query(
+      `INSERT INTO invoices
+       (order_id, amount, due_date, status, pdf_url)
+       VALUES (?, ?, DATE_ADD(CURDATE(), INTERVAL 14 DAY), ?, ?)`,
+      [
+        orderId,
+        quotation.total_amount,
+        'pending',
+        null
+      ]
+    );
+
+    const [createdOrder] = await connection.query(
+      'SELECT * FROM orders WHERE id = ?',
+      [orderId]
+    );
+
+    const [createdInvoice] = await connection.query(
+      'SELECT * FROM invoices WHERE id = ?',
+      [invoiceResult.insertId]
     );
 
     await connection.commit();
 
     res.json({
-      message: 'Quotation approved. Awaiting Agent 5 to generate invoice.',
-      quotation_id: quotationId,
-      request_id: quotation.request_id,
-      buyer_id: quotation.buyer_id,
-      farmer_id: quotation.farmer_id,
-      total_amount: quotation.total_amount
+      message: 'Quotation approved successfully. Order and invoice created.',
+      quotation_id: Number(quotationId),
+      order: createdOrder[0],
+      invoice: createdInvoice[0]
     });
   } catch (error) {
     await connection.rollback();

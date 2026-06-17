@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { forwardDemandRequestToSalesforce } = require('../services/salesforceService');
 
 exports.createRequest = async (req, res) => {
   try {
@@ -33,16 +34,23 @@ exports.createRequest = async (req, res) => {
         dr.quantity_kg,
         dr.required_date,
         dr.status,
-        dr.created_at
+        dr.created_at,
+        dr.salesforce_id
        FROM demand_requests dr
        JOIN users u ON dr.buyer_id = u.id
        WHERE dr.id = ?`,
       [result.insertId]
     );
 
+    const createdRequest = newRequest[0];
+
+    // Fire-and-forget Salesforce forwarding.
+    // Do NOT await this. Salesforce should not block the frontend.
+    forwardDemandRequestToSalesforce(createdRequest);
+
     res.status(201).json({
       message: 'Produce request created successfully',
-      request: newRequest[0]
+      request: createdRequest
     });
   } catch (error) {
     console.error('Create request error:', error);
@@ -55,7 +63,7 @@ exports.createRequest = async (req, res) => {
 exports.getRequests = async (req, res) => {
   try {
     const buyerId = req.user.id;
-    
+
     const [requests] = await db.query(
       `SELECT 
         dr.id,
@@ -65,14 +73,15 @@ exports.getRequests = async (req, res) => {
         dr.quantity_kg,
         dr.required_date,
         dr.status,
-        dr.created_at
+        dr.created_at,
+        dr.salesforce_id
        FROM demand_requests dr
        JOIN users u ON dr.buyer_id = u.id
        WHERE dr.buyer_id = ?
        ORDER BY dr.created_at DESC`,
       [buyerId]
     );
-    
+
     res.json(requests);
   } catch (error) {
     console.error('Get requests error:', error);
@@ -96,7 +105,8 @@ exports.getRequestById = async (req, res) => {
         dr.quantity_kg,
         dr.required_date,
         dr.status,
-        dr.created_at
+        dr.created_at,
+        dr.salesforce_id
        FROM demand_requests dr
        JOIN users u ON dr.buyer_id = u.id
        WHERE dr.id = ? AND dr.buyer_id = ?`,
